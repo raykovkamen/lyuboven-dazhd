@@ -1899,6 +1899,37 @@ function setHint(text) {
   hintLineEl.textContent = text;
 }
 
+/* Таен пропуск за тестване: 5 клика по слончето или по заглавието
+   прескачат текущото ниво. Броенето се нулира след 3 секунди без клик,
+   за да не се задейства случайно от играча. */
+const SKIP_TAPS_NEEDED = 5;
+let skipTaps = 0;
+let skipResetTimer = null;
+
+function tapToSkip() {
+  if (appState !== STATE.PLAY) {
+    return;
+  }
+
+  skipTaps += 1;
+  clearTimeout(skipResetTimer);
+  skipResetTimer = setTimeout(() => {
+    skipTaps = 0;
+  }, 3000);
+
+  const left = SKIP_TAPS_NEEDED - skipTaps;
+  if (left > 0) {
+    pushFloater(WORLD.w / 2, WORLD.h / 2, "🐘 " + left, "255,240,205");
+    sfx.click();
+    return;
+  }
+
+  skipTaps = 0;
+  pushFloater(WORLD.w / 2, WORLD.h / 2, "Прескочено 🐘", "255,240,205");
+  sfx.bonus();
+  completeLevel();
+}
+
 /* ========== Управление за докосване ========== */
 
 const TOUCH_LAYOUTS = {
@@ -2743,7 +2774,13 @@ window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 120)
 
 /* ========== Старт ========== */
 
-document.getElementById("gameTitle").textContent = "Любовен Дъжд за " + STORY.shortName;
+const gameTitleEl = document.getElementById("gameTitle");
+gameTitleEl.textContent = "Любовен Дъжд за " + STORY.shortName;
+
+/* и слончето, и заглавието водят до пропускане - слончето се крие
+   на нисък екран, затова има и второ място */
+hintLineEl.addEventListener("click", tapToSkip);
+gameTitleEl.addEventListener("click", tapToSkip);
 soundBtn.textContent = audio.on ? "🔊" : "🔇";
 soundBtn.setAttribute("aria-pressed", String(audio.on));
 
