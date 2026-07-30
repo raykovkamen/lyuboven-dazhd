@@ -1,0 +1,10 @@
+# локални настройки на инструменти - не се публикуват
+.claude/settings.local.json
+
+# Windows / OneDrive
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# macOS, ако някой отвори папката там
+.DS_Store

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#2a0b2e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Любовен Дъжд - малка романтична игра с шест нива." />
+  <title>Любовен Дъжд</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lobster+Two:wght@700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="romance-fx" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <h1 id="gameTitle">Любовен Дъжд</h1>
+      <div class="topbar-actions">
+        <button id="soundBtn" type="button" class="icon-btn" aria-pressed="true" aria-label="Звук">🔊</button>
+        <button id="pauseBtn" type="button" class="icon-btn" aria-label="Пауза">⏸</button>
+      </div>
+    </header>
+
+    <section class="hud" aria-live="polite">
+      <div class="stat"><span>Любов</span><strong id="score">0</strong></div>
+      <div class="stat"><span>Живот</span><strong id="lives">❤❤❤</strong></div>
+      <div class="stat"><span>Комбо</span><strong id="combo">x1</strong></div>
+      <div class="stat"><span>Рекорд</span><strong id="best">0</strong></div>
+    </section>
+
+    <section class="meters" aria-label="Напредък">
+      <div class="meter">
+        <div class="meter-label"><span id="levelName">Ниво 1</span><span id="levelProgressText">0%</span></div>
+        <div class="meter-track"><div id="levelFill" class="meter-fill level"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-label"><span>Романтичен метър</span><span id="loveText">0%</span></div>
+        <div class="meter-track"><div id="loveFill" class="meter-fill love"></div></div>
+      </div>
+    </section>
+
+    <div class="game-wrap">
+      <canvas id="game" aria-label="Игрално поле"></canvas>
+
+      <div id="overlay" class="overlay">
+        <div class="overlay-inner">
+          <h2 id="overlayTitle">Любовен Дъжд</h2>
+          <p id="overlayText">Натисни старт.</p>
+
+          <div id="reviveBox" class="revive-box hidden">
+            <label for="reviveInput">Кажи магическата фраза, за да продължиш:</label>
+            <input id="reviveInput" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="моля моля моля моля моля" />
+            <button id="reviveBtn" type="button" class="primary">Продължи</button>
+            <p id="reviveHint" class="revive-hint">Трябва да има поне 5 пъти "моля".</p>
+          </div>
+
+          <button id="restartBtn" type="button" class="primary big">Старт</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="touchControls" class="touch-controls" aria-label="Управление"></section>
+
+    <p id="hintLine" class="hint-line">🐘 Слончето пази късмета</p>
+
+    <footer class="controls">
+      <p id="controlsHint">Плъзни пръст по полето или използвай <kbd>←</kbd> <kbd>→</kbd></p>
+    </footer>
+  </main>
+
+  <section id="dateProposal" class="date-proposal hidden" aria-live="polite">
+    <div class="proposal-fx" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div id="confettiLayer" class="confetti-layer" aria-hidden="true"></div>
+    <div class="proposal-card">
+      <h2 id="proposalQuestion">Имам един важен въпрос...</h2>
+      <p id="proposalSubtext">Ще излезеш ли на среща с мен? 💖</p>
+      <ul id="proposalDetails" class="proposal-details hidden"></ul>
+      <div class="proposal-actions">
+        <button id="proposalYesBtn" type="button" class="primary big">Дааа 💘</button>
+        <button id="proposalMaybeBtn" type="button">Може бии...</button>
+      </div>
+      <div class="proposal-secondary">
+        <button id="proposalShareBtn" type="button" class="ghost hidden">Сподели 💌</button>
+        <button id="proposalReplayBtn" type="button" class="ghost">Играй пак</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="story.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

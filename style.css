@@ -1,0 +1,699 @@
+/* Mobile first: базовите стилове са за телефон, media queries добавят голям екран. */
+
+:root {
+  --bg-1: #2a0b2e;
+  --bg-2: #72235f;
+  --bg-3: #c94a71;
+  --bg-4: #ffb37d;
+  --card: rgba(255, 245, 247, 0.14);
+  --line: rgba(255, 233, 240, 0.4);
+  --text: #fff8fb;
+  --accent: #ffd166;
+  --hot: #ff6b8f;
+  --shadow: 0 18px 40px rgba(46, 8, 36, 0.4);
+  --gap: 8px;
+  --radius: 14px;
+  --tap: 54px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: "Manrope", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(120vw 60vh at 85% 8%, rgba(255, 255, 255, 0.18), transparent 60%),
+    radial-gradient(110vw 50vh at 10% 88%, rgba(255, 165, 190, 0.32), transparent 60%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-2) 38%, var(--bg-3) 74%, var(--bg-4));
+  background-size: 160% 160%;
+  background-attachment: fixed;
+  animation: dreamyBg 22s ease-in-out infinite;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Фонови сърца - зад целия екран */
+.romance-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.romance-fx span {
+  position: absolute;
+  bottom: -24px;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle at 30% 25%, #fff8fb, var(--hot));
+  transform: rotate(45deg);
+  opacity: 0.2;
+  animation: floatHearts linear infinite;
+}
+
+.romance-fx span::before,
+.romance-fx span::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.romance-fx span::before { left: -7px; }
+.romance-fx span::after { top: -7px; }
+
+.romance-fx span:nth-child(1) { left: 8%; animation-duration: 13s; }
+.romance-fx span:nth-child(2) { left: 24%; animation-duration: 10s; animation-delay: 1.5s; }
+.romance-fx span:nth-child(3) { left: 42%; animation-duration: 14s; animation-delay: 0.8s; }
+.romance-fx span:nth-child(4) { left: 60%; animation-duration: 11s; animation-delay: 2s; }
+.romance-fx span:nth-child(5) { left: 78%; animation-duration: 9.5s; animation-delay: 0.3s; }
+.romance-fx span:nth-child(6) { left: 92%; animation-duration: 12.5s; animation-delay: 1.2s; }
+
+/* Основен екран: пълна височина, без скрол на телефон */
+.app {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 10px calc(8px + var(--safe-b));
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar h1 {
+  flex: 1;
+  margin: 0;
+  font-family: "Lobster Two", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 6vw, 1.8rem);
+  line-height: 1.1;
+  text-shadow: 0 0 18px rgba(255, 215, 225, 0.3);
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.05rem;
+  background: rgba(255, 245, 248, 0.18);
+  color: var(--text);
+  border: 1px solid var(--line);
+  line-height: 1;
+}
+
+.icon-btn[aria-pressed="false"] {
+  opacity: 0.55;
+}
+
+/* HUD: 4 плочки в 2 реда на телефон */
+.hud {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.stat {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px 9px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 130, 160, 0.14));
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stat span {
+  font-size: 0.72rem;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.stat strong {
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat strong.bump {
+  animation: statBump 320ms ease;
+}
+
+.meters {
+  display: grid;
+  gap: 6px;
+}
+
+.meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.meter-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.meter-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 220ms ease;
+}
+
+.meter-fill.love {
+  background: linear-gradient(90deg, #ffd166, #ff6b8f, #ffe4a6);
+  box-shadow: 0 0 12px rgba(255, 197, 122, 0.7);
+}
+
+.meter-fill.level {
+  background: linear-gradient(90deg, #a9e8ff, #d7b4ff, #ffd9ec);
+  box-shadow: 0 0 12px rgba(190, 205, 255, 0.6);
+}
+
+/* Игралното поле взима останалото място */
+.game-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 240px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: linear-gradient(180deg, #2b0f2f, #511744 58%, #7a2f55);
+}
+
+canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+canvas.hit {
+  animation: hitShake 260ms linear;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(32, 4, 21, 0.72);
+  backdrop-filter: blur(3px);
+  overflow-y: auto;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay-inner {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.overlay h2 {
+  margin: 0;
+  font-family: "Lobster Two", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.35rem, 6.5vw, 1.9rem);
+  line-height: 1.15;
+}
+
+.overlay p {
+  margin: 0;
+  font-size: clamp(0.86rem, 3.7vw, 1rem);
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.overlay p.typing::after {
+  content: "▍";
+  opacity: 0.7;
+  animation: caret 700ms steps(1) infinite;
+}
+
+.revive-box {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+
+.revive-box.hidden {
+  display: none;
+}
+
+.revive-box label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.revive-box input {
+  width: 100%;
+  min-height: var(--tap);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 245, 248, 0.18);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.revive-box input::placeholder {
+  color: rgba(255, 238, 243, 0.6);
+}
+
+.revive-hint {
+  margin: 0;
+  font-size: 0.76rem;
+  opacity: 0.9;
+}
+
+/* Управление в зоната на палеца */
+.touch-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.touch-controls:empty {
+  display: none;
+}
+
+.touch-controls.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.touch-controls.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.touch-btn {
+  min-height: var(--tap);
+  padding: 6px 4px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  border-radius: 14px;
+  touch-action: none;
+  user-select: none;
+  background: linear-gradient(150deg, rgba(255, 246, 224, 0.95), rgba(255, 214, 228, 0.9));
+}
+
+.touch-btn.pressed {
+  transform: scale(0.95);
+  filter: brightness(1.12);
+}
+
+.touch-btn.col-0 { background: linear-gradient(150deg, #ffe6ae, #ffd07f); }
+.touch-btn.col-1 { background: linear-gradient(150deg, #ffd0dd, #ffa6c1); }
+.touch-btn.col-2 { background: linear-gradient(150deg, #fff0c0, #ffe08a); }
+.touch-btn.col-3 { background: linear-gradient(150deg, #eed4ff, #d2a6ff); }
+
+.hint-line {
+  margin: 0;
+  padding: 5px 11px;
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 225, 233, 0.16);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.controls {
+  margin: 0;
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+
+.controls p {
+  margin: 0;
+}
+
+kbd {
+  font-family: inherit;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 0 5px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Бутони */
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 700;
+  color: #3a1028;
+  cursor: pointer;
+  background: linear-gradient(120deg, var(--accent), #ffe8a8 55%, #fff5cf);
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+button.big {
+  min-height: var(--tap);
+  width: 100%;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+button.ghost {
+  background: rgba(255, 245, 248, 0.18);
+  color: var(--text);
+  border: 1px solid var(--line);
+  font-weight: 700;
+}
+
+button.hidden {
+  display: none;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  button:hover,
+  button:focus-visible {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+  }
+}
+
+/* Финалният въпрос */
+.date-proposal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--safe-b));
+  overflow-y: auto;
+  background:
+    radial-gradient(90vw 45vh at 50% 8%, rgba(255, 243, 202, 0.2), transparent 60%),
+    radial-gradient(100vw 80vh at 20% 92%, rgba(255, 130, 160, 0.2), transparent 60%),
+    rgba(22, 5, 18, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.date-proposal.hidden {
+  display: none;
+}
+
+.proposal-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.proposal-fx span {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  bottom: -24px;
+  transform: rotate(45deg);
+  background: radial-gradient(circle at 30% 25%, #fff7f7, #ff7eaa);
+  opacity: 0.25;
+  animation: proposalHeartFloat linear infinite;
+}
+
+.proposal-fx span::before,
+.proposal-fx span::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.proposal-fx span::before { left: -8px; }
+.proposal-fx span::after { top: -8px; }
+
+.proposal-fx span:nth-child(1) { left: 6%; animation-duration: 9s; }
+.proposal-fx span:nth-child(2) { left: 20%; animation-duration: 11s; animation-delay: 0.7s; }
+.proposal-fx span:nth-child(3) { left: 34%; animation-duration: 8.5s; animation-delay: 1.2s; }
+.proposal-fx span:nth-child(4) { left: 50%; animation-duration: 10.5s; animation-delay: 0.4s; }
+.proposal-fx span:nth-child(5) { left: 66%; animation-duration: 9.5s; animation-delay: 1.6s; }
+.proposal-fx span:nth-child(6) { left: 82%; animation-duration: 8s; animation-delay: 0.3s; }
+.proposal-fx span:nth-child(7) { left: 92%; animation-duration: 11.5s; animation-delay: 1.1s; }
+
+.confetti-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti-layer i {
+  position: absolute;
+  top: -20px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+
+.proposal-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 223, 233, 0.5);
+  background: linear-gradient(160deg, rgba(255, 247, 249, 0.16), rgba(255, 143, 172, 0.16));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+  padding: 20px 16px;
+  text-align: center;
+  animation: proposalPop 550ms ease;
+}
+
+.proposal-card h2 {
+  margin: 0;
+  font-family: "Lobster Two", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 8vw, 2.3rem);
+  line-height: 1.1;
+  text-shadow: 0 0 22px rgba(255, 218, 226, 0.5);
+}
+
+.proposal-card p {
+  margin: 10px 0 14px;
+  font-size: clamp(0.94rem, 4.2vw, 1.1rem);
+  line-height: 1.45;
+}
+
+.proposal-details {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 235, 240, 0.5);
+  background: rgba(255, 245, 248, 0.12);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  animation: fadeIn 500ms ease;
+}
+
+.proposal-details.hidden {
+  display: none;
+}
+
+.proposal-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.proposal-actions button {
+  min-height: var(--tap);
+  font-weight: 800;
+}
+
+#proposalYesBtn {
+  background: linear-gradient(130deg, #ffd166, #ff88ad 55%, #ffeec1);
+  animation: yesGlow 1300ms ease-in-out infinite;
+}
+
+#proposalMaybeBtn {
+  transition: transform 220ms cubic-bezier(0.2, 1.4, 0.4, 1), filter 140ms ease;
+}
+
+.proposal-secondary {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.proposal-secondary button {
+  font-size: 0.86rem;
+  padding: 9px 16px;
+}
+
+/* Анимации */
+@keyframes dreamyBg {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes fadeIn {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes floatHearts {
+  from { transform: translateY(0) rotate(45deg) scale(0.8); opacity: 0; }
+  12% { opacity: 0.2; }
+  to { transform: translateY(-105dvh) rotate(55deg) scale(1.15); opacity: 0; }
+}
+
+@keyframes statBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22); color: #fff3c9; }
+  100% { transform: scale(1); }
+}
+
+@keyframes hitShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-3px); }
+}
+
+@keyframes caret {
+  0%, 49% { opacity: 0.8; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes proposalHeartFloat {
+  from { transform: translateY(0) rotate(45deg) scale(0.8); opacity: 0; }
+  12% { opacity: 0.3; }
+  to { transform: translateY(-110dvh) rotate(58deg) scale(1.2); opacity: 0; }
+}
+
+@keyframes proposalPop {
+  from { opacity: 0; transform: scale(0.88) translateY(14px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes yesGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 210, 145, 0); }
+  50% { box-shadow: 0 0 18px rgba(255, 210, 145, 0.55); }
+}
+
+@keyframes confettiFall {
+  from { transform: translateY(0) rotate(0deg); opacity: 1; }
+  to { transform: translateY(105dvh) rotate(680deg); opacity: 0.1; }
+}
+
+/* Малки телефони: спестяваме вертикално място */
+@media (max-height: 660px) {
+  .meter-label { font-size: 0.68rem; }
+  .controls { display: none; }
+  .hint-line { display: none; }
+  :root { --tap: 48px; }
+}
+
+/* Таблет и по-голямо */
+@media (min-width: 620px) {
+  :root { --gap: 12px; --radius: 18px; }
+
+  .app {
+    max-width: 900px;
+    padding: 16px 18px calc(16px + var(--safe-b));
+    gap: var(--gap);
+  }
+
+  .hud {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stat { padding: 8px 12px; border-radius: 12px; }
+  .stat span { font-size: 0.82rem; }
+  .stat strong { font-size: 1.2rem; }
+
+  .meter-label { font-size: 0.82rem; }
+  .meter-track { height: 10px; }
+
+  .game-wrap {
+    min-height: 420px;
+    max-height: 62dvh;
+  }
+
+  .hint-line, .controls { font-size: 0.86rem; }
+
+  /* 2 бутона не бива да са безкрайно широки, но 4-те на ритъма
+     стоят под своите колони, затова остават на цялата ширина */
+  .touch-controls { max-width: 520px; }
+  .touch-controls.cols-4 { max-width: none; }
+
+  .proposal-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .topbar h1 { font-size: 2rem; }
+  .game-wrap { min-height: 480px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
