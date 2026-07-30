@@ -1398,7 +1398,15 @@ function shuffledIndexes(count) {
   return list;
 }
 
+/* Платното се рисува и докато се четат правилата, тоест преди
+   resetLevelState да е подредил въпросите - затова се оправяме сами. */
 function currentQuestion() {
+  if (!STORY.quiz.length) {
+    return null;
+  }
+  if (!quizState.order.length) {
+    quizState.order = shuffledIndexes(STORY.quiz.length);
+  }
   return STORY.quiz[quizState.order[quizState.index % quizState.order.length]];
 }
 
@@ -1439,6 +1447,10 @@ function answerQuiz(index) {
 
   const question = currentQuestion();
   const box = quizState.boxes[index];
+  if (!question || !box) {
+    return;
+  }
+
   quizState.chosen = index;
   quizState.locked = 1.5;
 
@@ -1476,6 +1488,15 @@ function wrapText(text, maxWidth) {
 
 function drawQuiz() {
   const question = currentQuestion();
+
+  if (!question) {
+    ctx.fillStyle = "rgba(255, 248, 251, 0.9)";
+    ctx.font = font(15, 700);
+    ctx.textAlign = "center";
+    ctx.fillText("Добави въпроси в story.js", WORLD.w / 2, WORLD.h / 2);
+    return;
+  }
+
   const pad = u(14);
 
   ctx.textAlign = "center";
@@ -2451,19 +2472,33 @@ function update(dt, now) {
   }
 }
 
+let frameErrorLogged = false;
+
 function frame(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.033);
   lastTime = now;
 
-  update(dt, now);
+  try {
+    update(dt, now);
 
-  const ox = shake > 0 ? Math.sin(now * 0.06) * u(9) * shake : 0;
-  const oy = shake > 0 ? Math.cos(now * 0.07) * u(6) * shake : 0;
-  ctx.save();
-  ctx.translate(ox, oy);
-  render(now);
-  ctx.restore();
+    const ox = shake > 0 ? Math.sin(now * 0.06) * u(9) * shake : 0;
+    const oy = shake > 0 ? Math.cos(now * 0.07) * u(6) * shake : 0;
+    ctx.save();
+    try {
+      ctx.translate(ox, oy);
+      render(now);
+    } finally {
+      ctx.restore();
+    }
+  } catch (err) {
+    /* Един лош кадър не бива да спира играта завинаги. */
+    if (!frameErrorLogged) {
+      frameErrorLogged = true;
+      console.error("Любовен Дъжд: грешка в кадър", err);
+    }
+  }
 
+  /* Винаги извън try - иначе цикълът умира. */
   requestAnimationFrame(frame);
 }
 
