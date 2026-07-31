@@ -39,6 +39,7 @@ const proposalQuestion = document.getElementById("proposalQuestion");
 const proposalSubtext = document.getElementById("proposalSubtext");
 const proposalDetails = document.getElementById("proposalDetails");
 const dateChoices = document.getElementById("dateChoices");
+const voiceBtn = document.getElementById("voiceBtn");
 const proposalYesBtn = document.getElementById("proposalYesBtn");
 const proposalMaybeBtn = document.getElementById("proposalMaybeBtn");
 const proposalReplayBtn = document.getElementById("proposalReplayBtn");
@@ -135,19 +136,51 @@ const audio = {
   wave: "triangle",
 };
 
+/* Всяко настроение има акорди (по 8 стъпки на акорд) и мелодия
+   (32 стъпки, null = пауза), която върви отгоре. */
 const MOODS = {
-  love: [
-    [57, 60, 64, 67],
-    [53, 57, 60, 64],
-    [48, 55, 60, 64],
-    [55, 59, 62, 67],
-  ],
-  finale: [
-    [53, 57, 60, 65],
-    [55, 59, 62, 67],
-    [57, 60, 64, 69],
-    [60, 64, 67, 72],
-  ],
+  love: {
+    chords: [
+      [57, 60, 64, 67],
+      [53, 57, 60, 64],
+      [48, 55, 60, 64],
+      [55, 59, 62, 67],
+    ],
+    melody: [
+      69, null, 72, null, 71, 69, null, 67,
+      69, null, 64, null, null, 65, 64, 62,
+      60, null, 64, null, 67, null, 69, null,
+      71, null, 69, 67, null, null, null, null,
+    ],
+  },
+  finale: {
+    chords: [
+      [53, 57, 60, 65],
+      [55, 59, 62, 67],
+      [57, 60, 64, 69],
+      [60, 64, 67, 72],
+    ],
+    melody: [
+      72, null, 76, null, 74, 72, null, 71,
+      72, null, 74, null, 76, null, 79, null,
+      77, null, 76, null, 74, null, 72, null,
+      74, 76, 77, null, 76, null, 72, null,
+    ],
+  },
+  intro: {
+    chords: [
+      [45, 52, 57, 60],
+      [50, 57, 62, 65],
+      [52, 59, 64, 67],
+      [45, 52, 57, 64],
+    ],
+    melody: [
+      64, null, null, 67, null, null, 69, null,
+      null, null, 67, null, 64, null, null, null,
+      62, null, null, 64, null, null, 67, null,
+      null, null, 64, null, null, null, null, null,
+    ],
+  },
 };
 
 function midiToFreq(midi) {
@@ -303,7 +336,8 @@ const sfx = {
 };
 
 function musicStep(step, when) {
-  const chords = MOODS[audio.mood];
+  const mood = MOODS[audio.mood];
+  const chords = mood.chords;
   const chord = chords[Math.floor(step / 8) % chords.length];
   const inBar = step % 8;
 
@@ -317,6 +351,39 @@ function musicStep(step, when) {
       bus: "music",
       delay: when,
     });
+
+    /* мек "пад" - двата вътрешни тона на акорда, дълги и тихи */
+    tone({
+      freq: midiToFreq(chord[1]),
+      dur: audio.stepDur * 8,
+      type: "sine",
+      gain: 0.05,
+      attack: 0.25,
+      bus: "music",
+      delay: when,
+    });
+    tone({
+      freq: midiToFreq(chord[2]),
+      dur: audio.stepDur * 8,
+      type: "sine",
+      gain: 0.045,
+      attack: 0.3,
+      bus: "music",
+      delay: when,
+    });
+  }
+
+  /* лек пулс по средата на такта, за да диша басът */
+  if (inBar === 4) {
+    tone({
+      freq: midiToFreq(chord[0]),
+      dur: audio.stepDur * 2.4,
+      type: "sine",
+      gain: 0.09,
+      attack: 0.02,
+      bus: "music",
+      delay: when,
+    });
   }
 
   const arp = chord[inBar % chord.length] + (inBar >= 4 ? 12 : 0);
@@ -324,17 +391,31 @@ function musicStep(step, when) {
     freq: midiToFreq(arp),
     dur: audio.stepDur * 1.8,
     type: audio.wave,
-    gain: inBar % 2 === 0 ? 0.15 : 0.09,
+    gain: inBar % 2 === 0 ? 0.13 : 0.08,
     bus: "music",
     delay: when,
   });
+
+  /* мелодията отгоре - тя прави музиката песен, а не фон */
+  const note = mood.melody[step % mood.melody.length];
+  if (note !== null) {
+    tone({
+      freq: midiToFreq(note),
+      dur: audio.stepDur * 2.6,
+      type: "sine",
+      gain: 0.14,
+      attack: 0.015,
+      bus: "music",
+      delay: when,
+    });
+  }
 
   if (step % 16 === 14) {
     tone({
       freq: midiToFreq(chord[2] + 24),
       dur: audio.stepDur * 2.4,
       type: "sine",
-      gain: 0.07,
+      gain: 0.06,
       bus: "music",
       delay: when,
     });
@@ -581,6 +662,7 @@ function drawEffects() {
 
 const STATE = {
   INTRO: "intro",
+  CINEMATIC: "cinematic",
   RULES: "rules",
   PLAY: "play",
   NOTE: "note",
@@ -724,6 +806,9 @@ const storyState = {
   showText: "",
   photos: {},
 };
+
+const CINEMATIC_DURATION = 8.4;
+const cinematicState = { t: 0 };
 
 function level() {
   return LEVELS[currentLevel];
@@ -2342,6 +2427,189 @@ function drawRescue() {
   }
 }
 
+/* ========== Кино: микробусът за Монтана ========== */
+
+function drawMinibus(x, y, w, h, wheelAngle, bob) {
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  /* корпус */
+  const body = ctx.createLinearGradient(0, 0, 0, h);
+  body.addColorStop(0, "#fff3e2");
+  body.addColorStop(1, "#ffd9a8");
+  ctx.fillStyle = body;
+  roundedRect(0, 0, w, h, u(10));
+  ctx.fill();
+
+  /* цветна лента по корпуса */
+  ctx.fillStyle = "#ff8ca8";
+  roundedRect(0, h * 0.58, w, h * 0.16, u(4));
+  ctx.fill();
+
+  /* прозорци */
+  ctx.fillStyle = "rgba(46, 26, 66, 0.92)";
+  const winY = h * 0.14;
+  const winH = h * 0.34;
+  roundedRect(w * 0.06, winY, w * 0.2, winH, u(4));
+  ctx.fill();
+  roundedRect(w * 0.3, winY, w * 0.2, winH, u(4));
+  ctx.fill();
+  roundedRect(w * 0.54, winY, w * 0.2, winH, u(4));
+  ctx.fill();
+  roundedRect(w * 0.78, winY, w * 0.17, winH, u(4));
+  ctx.fill();
+
+  /* двете сърца на средния прозорец - те са важните пътници */
+  const beat = 1 + Math.sin(performance.now() * 0.006) * 0.12;
+  drawGoldHeart(w * 0.36, winY + winH * 0.55, u(4.6) * beat, 0);
+  drawHeart(w * 0.44, winY + winH * 0.5, u(4.2) * beat, "#ff9cb8", 0);
+
+  /* слончето пътува на покрива */
+  drawElephant(w * 0.2, -u(8), u(11));
+
+  /* фар */
+  ctx.fillStyle = "#fff6c9";
+  ctx.beginPath();
+  ctx.arc(w - u(3), h * 0.66, u(3.2), 0, Math.PI * 2);
+  ctx.fill();
+
+  /* колела */
+  for (const wx of [w * 0.22, w * 0.78]) {
+    ctx.fillStyle = "#2b1a33";
+    ctx.beginPath();
+    ctx.arc(wx, h, u(8), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#c9b8d6";
+    ctx.lineWidth = u(2);
+    ctx.beginPath();
+    ctx.moveTo(wx - Math.cos(wheelAngle) * u(5), h - Math.sin(wheelAngle) * u(5));
+    ctx.lineTo(wx + Math.cos(wheelAngle) * u(5), h + Math.sin(wheelAngle) * u(5));
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function cinematicBusX(t) {
+  /* влиза, спира по средата за момента им, после потегля */
+  const enter = clamp(t / 2.6, 0, 1);
+  const eased = 1 - Math.pow(1 - enter, 3);
+  let x = -u(140) + eased * (WORLD.w * 0.5 - u(60) + u(140));
+  if (t > 4.8) {
+    const leave = clamp((t - 4.8) / 2.4, 0, 1);
+    x += leave * leave * (WORLD.w * 0.75 + u(180));
+  }
+  return x;
+}
+
+function drawCinematic() {
+  const t = cinematicState.t;
+
+  /* залезно небе */
+  const sky = ctx.createLinearGradient(0, 0, 0, WORLD.h);
+  sky.addColorStop(0, "#241040");
+  sky.addColorStop(0.55, "#6d2a4e");
+  sky.addColorStop(1, "#c4633f");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+  /* звезди */
+  for (let i = 0; i < 24; i += 1) {
+    const sx = (i * 127) % WORLD.w;
+    const sy = (i * 67) % (WORLD.h * 0.5);
+    const twinkle = 0.3 + Math.abs(Math.sin(performance.now() * 0.001 + i)) * 0.5;
+    ctx.fillStyle = "rgba(255, 240, 220, " + twinkle + ")";
+    ctx.fillRect(sx, sy, u(1.6), u(1.6));
+  }
+
+  /* слънцето сяда зад хълмовете */
+  ctx.fillStyle = "rgba(255, 196, 120, 0.85)";
+  ctx.beginPath();
+  ctx.arc(WORLD.w * 0.78, WORLD.h * 0.62, u(26), 0, Math.PI * 2);
+  ctx.fill();
+
+  /* хълмове */
+  ctx.fillStyle = "rgba(40, 16, 44, 0.9)";
+  ctx.beginPath();
+  ctx.ellipse(WORLD.w * 0.2, WORLD.h * 0.82, WORLD.w * 0.5, WORLD.h * 0.18, 0, Math.PI, 0);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(WORLD.w * 0.85, WORLD.h * 0.84, WORLD.w * 0.55, WORLD.h * 0.22, 0, Math.PI, 0);
+  ctx.fill();
+
+  /* път */
+  const roadY = WORLD.h * 0.8;
+  ctx.fillStyle = "#33203d";
+  ctx.fillRect(0, roadY, WORLD.w, WORLD.h - roadY);
+  ctx.fillStyle = "rgba(255, 235, 200, 0.5)";
+  const dashShift = (t * u(90)) % u(44);
+  for (let dx = -u(44); dx < WORLD.w + u(44); dx += u(44)) {
+    ctx.fillRect(dx - dashShift, roadY + u(16), u(20), u(3));
+  }
+
+  /* знакът за Монтана */
+  const signX = WORLD.w * 0.82;
+  ctx.fillStyle = "#5a4668";
+  ctx.fillRect(signX - u(2), roadY - u(52), u(4), u(52));
+  ctx.fillStyle = "#2e7d4f";
+  roundedRect(signX - u(46), roadY - u(70), u(92), u(24), u(4));
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.8)";
+  ctx.lineWidth = u(1.4);
+  roundedRect(signX - u(46), roadY - u(70), u(92), u(24), u(4));
+  ctx.stroke();
+  ctx.fillStyle = "#fff";
+  ctx.font = font(11, 800);
+  ctx.textAlign = "center";
+  ctx.fillText("МОНТАНА →", signX, roadY - u(54));
+
+  /* микробусът */
+  const busW = u(120);
+  const busH = u(46);
+  const busX = cinematicBusX(t);
+  const moving = t < 2.6 || t > 4.8;
+  const bob = moving ? Math.sin(t * 22) * u(1.2) : 0;
+  const wheelAngle = busX * 0.06;
+  drawMinibus(busX, roadY - busH - u(6), busW, busH, wheelAngle, bob);
+
+  /* надписи */
+  const capAlpha = clamp((t - 0.5) / 0.8, 0, 1) * clamp((CINEMATIC_DURATION - 0.6 - t) / 0.8, 0, 1);
+  ctx.fillStyle = "rgba(255, 244, 235, " + capAlpha * 0.95 + ")";
+  ctx.font = font(16, 800);
+  ctx.fillText("Монтана, преди време…", WORLD.w / 2, WORLD.h * 0.2);
+
+  if (t > 2.8 && t < 4.9) {
+    const a = clamp((t - 2.8) / 0.5, 0, 1);
+    ctx.fillStyle = "rgba(255, 224, 190, " + a * 0.9 + ")";
+    ctx.font = font(12, 700);
+    ctx.fillText("две сърца, един микробус", WORLD.w / 2, WORLD.h * 0.27);
+  }
+
+  ctx.fillStyle = "rgba(255, 240, 220, " + (0.35 + Math.sin(performance.now() * 0.004) * 0.15) + ")";
+  ctx.font = font(10, 700);
+  ctx.fillText("тапни, за да прескочиш", WORLD.w / 2, WORLD.h - u(12));
+}
+
+function startCinematic() {
+  appState = STATE.CINEMATIC;
+  cinematicState.t = 0;
+  releaseAllKeys();
+  overlay.classList.add("hidden");
+  touchControls.innerHTML = "";
+  stopMusic();
+  startMusic(0.3, "intro", "sine");
+  setHint("Всяка история започва отнякъде…");
+  lastTime = performance.now();
+}
+
+function endCinematic() {
+  if (appState !== STATE.CINEMATIC) {
+    return;
+  }
+  stopMusic();
+  showLevelRules(0);
+}
+
 /* ========== Фон и общи слоеве ========== */
 
 function drawBackground(now) {
@@ -2462,6 +2730,12 @@ function drawTopBar() {
 }
 
 function render(now) {
+  if (appState === STATE.CINEMATIC) {
+    drawCinematic();
+    drawEffects();
+    return;
+  }
+
   drawBackground(now);
 
   const mode = level().mode;
@@ -3044,7 +3318,7 @@ function tryRevive() {
   updateHud();
 }
 
-function startRunAt(index) {
+function resetRunStats() {
   closeProposal();
   score = 0;
   lives = 3;
@@ -3054,12 +3328,18 @@ function startRunAt(index) {
   runTime = 0;
   hudCache.levelFill = -1;
   hudCache.loveFill = -1;
-  showLevelRules(index);
   updateHud();
 }
 
+function startRunAt(index) {
+  resetRunStats();
+  showLevelRules(index);
+}
+
+/* Новото начало минава през киното с микробуса. */
 function startNewRun() {
-  startRunAt(0);
+  resetRunStats();
+  startCinematic();
 }
 
 function pauseGame() {
@@ -3084,6 +3364,53 @@ function resumeGame() {
 let maybeCount = 0;
 let proposalAccepted = false;
 
+/* Гласовото съобщение: бутонът се показва само ако файлът наистина
+   съществува - така пътят може да стои в story.js и преди качването. */
+const VOICE_BTN_TEXT = "Пусни гласово от мен 🎧";
+let voiceAudio = null;
+let voiceReady = false;
+
+function preloadVoice() {
+  if (!STORY.voiceNote || voiceAudio) {
+    return;
+  }
+  voiceAudio = new Audio(STORY.voiceNote);
+  voiceAudio.preload = "auto";
+  voiceAudio.addEventListener("canplaythrough", () => {
+    voiceReady = true;
+    if (proposalAccepted) {
+      voiceBtn.classList.remove("hidden");
+    }
+  });
+  voiceAudio.addEventListener("ended", () => {
+    voiceBtn.textContent = VOICE_BTN_TEXT;
+    if (audio.musicBus) {
+      audio.musicBus.gain.value = 0.26;
+    }
+  });
+}
+
+function toggleVoice() {
+  if (!voiceAudio || !voiceReady) {
+    return;
+  }
+  if (voiceAudio.paused) {
+    unlockAudio();
+    if (audio.musicBus) {
+      audio.musicBus.gain.value = 0.05; /* музиката отстъпва на гласа */
+    }
+    voiceAudio.currentTime = 0;
+    voiceAudio.play().catch(() => {});
+    voiceBtn.textContent = "Спри ⏸";
+  } else {
+    voiceAudio.pause();
+    voiceBtn.textContent = VOICE_BTN_TEXT;
+    if (audio.musicBus) {
+      audio.musicBus.gain.value = 0.26;
+    }
+  }
+}
+
 function openProposal() {
   appState = STATE.PROPOSAL;
   releaseAllKeys();
@@ -3103,6 +3430,9 @@ function openProposal() {
   dateChoices.classList.add("hidden");
   dateChoices.innerHTML = "";
   planLi = null;
+  voiceBtn.classList.add("hidden");
+  voiceBtn.textContent = VOICE_BTN_TEXT;
+  preloadVoice();
   dateProposal.classList.remove("hidden");
 
   stopMusic();
@@ -3115,6 +3445,12 @@ function openProposal() {
 function closeProposal() {
   dateProposal.classList.add("hidden");
   confettiLayer.innerHTML = "";
+  if (voiceAudio && !voiceAudio.paused) {
+    voiceAudio.pause();
+  }
+  if (audio.musicBus) {
+    audio.musicBus.gain.value = 0.26;
+  }
 }
 
 function celebrate(times) {
@@ -3189,6 +3525,10 @@ function acceptProposal() {
   }
   dateChoices.classList.remove("hidden");
 
+  if (voiceReady) {
+    voiceBtn.classList.remove("hidden");
+  }
+
   pulse = 1;
   celebrate(18);
   dropConfetti(90);
@@ -3238,6 +3578,22 @@ function dodgeMaybeButton() {
 /* ========== Цикъл ========== */
 
 function update(dt, now) {
+  if (appState === STATE.CINEMATIC) {
+    cinematicState.t += dt;
+    updateEffects(dt);
+
+    /* сърца излитат от микробуса, докато е спрял */
+    if (cinematicState.t > 2.8 && cinematicState.t < 4.8 && Math.random() < 0.05) {
+      const busX = cinematicBusX(cinematicState.t);
+      pushFloater(busX + u(48) + rand(-u(14), u(14)), WORLD.h * 0.8 - u(56), "💗", "255,180,205");
+    }
+
+    if (cinematicState.t >= CINEMATIC_DURATION) {
+      endCinematic();
+    }
+    return;
+  }
+
   if (appState === STATE.PROPOSAL) {
     updateEffects(dt);
     pulse = Math.max(0.25, pulse - dt * 0.3);
@@ -3334,6 +3690,10 @@ let swipeStartX = null;
 let pointerDown = false;
 
 function onPointerDown(event) {
+  if (appState === STATE.CINEMATIC) {
+    endCinematic();
+    return;
+  }
   if (appState !== STATE.PLAY) {
     return;
   }
@@ -3422,6 +3782,11 @@ window.addEventListener("keydown", (event) => {
 
   if (key === "m") {
     setSound(!audio.on);
+    return;
+  }
+
+  if (appState === STATE.CINEMATIC) {
+    endCinematic();
     return;
   }
 
@@ -3567,6 +3932,7 @@ proposalYesBtn.addEventListener("click", () => {
   acceptProposal();
 });
 proposalMaybeBtn.addEventListener("click", dodgeMaybeButton);
+voiceBtn.addEventListener("click", toggleVoice);
 proposalReplayBtn.addEventListener("click", () => {
   sfx.click();
   startNewRun();
