@@ -666,6 +666,7 @@ const quizState = {
   correct: 0,
   chosen: -1,
   locked: 0,
+  waiting: false,
   note: "",
   /* Какво е избрала на всеки въпрос - финалът го показва. */
   picks: [],
@@ -1497,22 +1498,27 @@ function currentQuestion() {
 }
 
 function updateQuiz(dt) {
+  /* Пазач срещу случайно прескачане - бележката чака нейния тап. */
   if (quizState.locked > 0) {
-    quizState.locked -= dt;
-    if (quizState.locked <= 0) {
-      quizState.locked = 0;
-      quizState.chosen = -1;
-      quizState.note = "";
-      quizState.index += 1;
-      if (quizState.correct >= level().goal) {
-        completeLevel();
-      }
-    }
+    quizState.locked = Math.max(0, quizState.locked - dt);
+  }
+}
+
+function advanceQuiz() {
+  quizState.waiting = false;
+  quizState.chosen = -1;
+  quizState.note = "";
+  quizState.index += 1;
+  if (quizState.correct >= level().goal) {
+    completeLevel();
   }
 }
 
 function tapQuiz(x, y) {
-  if (quizState.locked > 0) {
+  if (quizState.waiting) {
+    if (quizState.locked <= 0) {
+      advanceQuiz();
+    }
     return;
   }
 
@@ -1527,7 +1533,11 @@ function tapQuiz(x, y) {
 }
 
 function answerQuiz(index) {
-  if (quizState.locked > 0) {
+  if (quizState.waiting) {
+    /* клавиш 1-4 също продължава към следващия въпрос */
+    if (quizState.locked <= 0) {
+      advanceQuiz();
+    }
     return;
   }
 
@@ -1538,7 +1548,8 @@ function answerQuiz(index) {
   }
 
   quizState.chosen = index;
-  quizState.locked = 1.5;
+  quizState.waiting = true;
+  quizState.locked = 0.45;
 
   /* Тук няма грешни отговори - каквото избере тя, е вярното. */
   quizState.correct += 1;
@@ -1599,12 +1610,19 @@ function drawQuiz() {
     for (let i = 0; i < noteLines.length; i += 1) {
       ctx.fillText(noteLines[i], WORLD.w / 2, startY + lines.length * lineH + u(6) + i * u(16));
     }
+
+    if (quizState.waiting && quizState.locked <= 0) {
+      const glow = 0.5 + Math.sin(performance.now() * 0.004) * 0.25;
+      ctx.font = font(11, 700);
+      ctx.fillStyle = "rgba(255, 224, 180, " + glow + ")";
+      ctx.fillText("Тапни за следващия въпрос", WORLD.w / 2, startY + lines.length * lineH + u(6) + noteLines.length * u(16) + u(14));
+    }
   }
 
   for (let i = 0; i < quizState.boxes.length; i += 1) {
     const b = quizState.boxes[i];
     /* Избраният отговор винаги светва зелено - тя не греши. */
-    const isChosen = quizState.locked > 0 && quizState.chosen === i;
+    const isChosen = quizState.waiting && quizState.chosen === i;
 
     let fill = "rgba(255,255,255,0.09)";
     let stroke = "rgba(255, 235, 245, 0.34)";
@@ -2035,18 +2053,10 @@ function spawnStoryBubble() {
 }
 
 function updateStory(dt) {
-  if (storyState.showTimer > 0) {
-    storyState.showTimer -= dt;
-    if (storyState.showTimer <= 0) {
-      storyState.showTimer = 0;
-      storyState.showText = "";
-      storyState.showWhen = "";
-      if (storyState.collected >= level().goal) {
-        completeLevel();
-        return;
-      }
-      spawnStoryBubble();
-    }
+  if (storyState.showText) {
+    /* Текстът чака нейния тап. Таймерът е само пазач срещу
+       случайното затваряне от същото докосване. */
+    storyState.showTimer = Math.max(0, storyState.showTimer - dt);
     return;
   }
 
@@ -2062,8 +2072,22 @@ function updateStory(dt) {
 }
 
 function tapStory(x, y) {
+  if (storyState.showText) {
+    if (storyState.showTimer > 0) {
+      return;
+    }
+    storyState.showText = "";
+    storyState.showWhen = "";
+    if (storyState.collected >= level().goal) {
+      completeLevel();
+      return;
+    }
+    spawnStoryBubble();
+    return;
+  }
+
   const b = storyState.bubble;
-  if (!b || storyState.showTimer > 0) {
+  if (!b) {
     return;
   }
 
@@ -2080,8 +2104,7 @@ function tapStory(x, y) {
   storyState.bubble = null;
   storyState.showWhen = moment.when;
   storyState.showText = moment.text;
-  /* по-дълъг текст стои по-дълго на екрана, снимката добавя време */
-  storyState.showTimer = clamp(1.6 + moment.text.length * 0.05, 2.4, 7) + (moment.photo ? 1.4 : 0);
+  storyState.showTimer = 0.45;
 
   reward(b.x, b.y, 4, 8, "💗");
   sfx.right();
@@ -2137,6 +2160,13 @@ function drawStory() {
     const startY = textTop + u(28);
     for (let i = 0; i < lines.length; i += 1) {
       ctx.fillText(lines[i], WORLD.w / 2, startY + i * lineH);
+    }
+
+    if (storyState.showTimer <= 0) {
+      const glow = 0.55 + Math.sin(performance.now() * 0.004) * 0.25;
+      ctx.font = font(12, 700);
+      ctx.fillStyle = "rgba(255, 224, 180, " + glow + ")";
+      ctx.fillText("Тапни, за да продължиш", WORLD.w / 2, WORLD.h - u(30));
     }
     return;
   }
@@ -2828,6 +2858,7 @@ function resetLevelState(index) {
     quizState.correct = 0;
     quizState.chosen = -1;
     quizState.locked = 0;
+    quizState.waiting = false;
     quizState.note = "";
     quizState.picks = [];
   } else if (mode === "pop") {
@@ -2849,7 +2880,7 @@ function resetLevelState(index) {
     storyState.index = 0;
     storyState.collected = 0;
     storyState.bubble = null;
-    storyState.showTimer = 0.5;
+    storyState.showTimer = 0;
     storyState.showWhen = "";
     storyState.showText = "";
     /* снимките се зареждат отрано, за да са готови при показване */
