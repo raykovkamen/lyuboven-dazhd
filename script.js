@@ -23,6 +23,7 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
 const restartBtn = document.getElementById("restartBtn");
+const continueBtn = document.getElementById("continueBtn");
 
 const reviveBox = document.getElementById("reviveBox");
 const reviveInput = document.getElementById("reviveInput");
@@ -37,6 +38,7 @@ const dateProposal = document.getElementById("dateProposal");
 const proposalQuestion = document.getElementById("proposalQuestion");
 const proposalSubtext = document.getElementById("proposalSubtext");
 const proposalDetails = document.getElementById("proposalDetails");
+const dateChoices = document.getElementById("dateChoices");
 const proposalYesBtn = document.getElementById("proposalYesBtn");
 const proposalMaybeBtn = document.getElementById("proposalMaybeBtn");
 const proposalReplayBtn = document.getElementById("proposalReplayBtn");
@@ -682,6 +684,46 @@ const rescueState = {
   targetY: null,
 };
 
+const popState = {
+  items: [],
+  popped: 0,
+  missed: 0,
+  spawnTimer: 0,
+};
+
+const pairsState = {
+  slots: [],
+  cards: [],
+  firstIndex: -1,
+  pendingA: -1,
+  pendingB: -1,
+  lock: 0,
+  matched: 0,
+  mismatches: 0,
+};
+
+const flightState = {
+  x: 0,
+  y: 0,
+  vy: 0,
+  r: 0,
+  gates: [],
+  passed: 0,
+  grace: 0,
+  spawnTimer: 0,
+  started: false,
+};
+
+const storyState = {
+  index: 0,
+  collected: 0,
+  bubble: null,
+  showTimer: 0,
+  showWhen: "",
+  showText: "",
+  photos: {},
+};
+
 function level() {
   return LEVELS[currentLevel];
 }
@@ -759,6 +801,34 @@ function layoutLevel() {
     rescueState.speed = u(300);
     rescueState.x = clamp(rescueState.x || WORLD.w / 2, rescueState.r, WORLD.w - rescueState.r);
     rescueState.y = clamp(rescueState.y || WORLD.h * 0.7, u(40), WORLD.h - rescueState.r);
+  }
+
+  if (mode === "pairs") {
+    const pad = u(10);
+    const top = u(48);
+    const gap = u(8);
+    const availW = WORLD.w - pad * 2;
+    const availH = WORLD.h - top - pad;
+    const w = (availW - gap * 3) / 4;
+    const h = (availH - gap * 3) / 4;
+
+    pairsState.slots = [];
+    for (let i = 0; i < 16; i += 1) {
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      pairsState.slots.push({
+        x: pad + col * (w + gap),
+        y: top + row * (h + gap),
+        w,
+        h,
+      });
+    }
+  }
+
+  if (mode === "flight") {
+    flightState.r = u(11);
+    flightState.x = WORLD.w * 0.3;
+    flightState.y = clamp(flightState.y || WORLD.h / 2, u(46) + flightState.r, WORLD.h - flightState.r);
   }
 }
 
@@ -847,6 +917,10 @@ function randomBoostType() {
 
 /* ========== Ниво 1: хващане ========== */
 
+/* Нейните любими - падат като бонуси в няколко нива. */
+const TREATS = ["🥤", "🍟"];
+const TREAT_LABEL = { "🥤": "Кола!", "🍟": "Чипс!" };
+
 function spawnDrop() {
   const difficulty = clamp(catcherState.caught / level().goal, 0, 1);
   const roll = Math.random();
@@ -856,7 +930,9 @@ function spawnDrop() {
     type = "boost";
   } else if (roll < 0.09) {
     type = "elephant";
-  } else if (roll < 0.09 + 0.18 + difficulty * 0.16) {
+  } else if (roll < 0.14) {
+    type = "treat";
+  } else if (roll < 0.14 + 0.18 + difficulty * 0.16) {
     type = "bad";
   }
 
@@ -872,6 +948,7 @@ function spawnDrop() {
     rotSpeed: rand(-2.2, 2.2),
     type,
     boost: type === "boost" ? randomBoostType() : null,
+    treat: type === "treat" ? pick(TREATS) : null,
   });
 }
 
@@ -921,6 +998,8 @@ function updateCatch(dt, now) {
       } else if (d.type === "elephant") {
         catcherState.caught += 2;
         reward(d.x, d.y, 4, 10, "Слонче +4");
+      } else if (d.type === "treat") {
+        reward(d.x, d.y, 3, 9, d.treat + " " + TREAT_LABEL[d.treat]);
       } else if (d.type === "boost") {
         grantBoost(d.boost, d.x, d.y);
       } else {
@@ -987,6 +1066,12 @@ function drawCatch() {
       drawBrokenHeart(d.x, d.y, d.radius * 0.82, d.rot);
     } else if (d.type === "elephant") {
       drawElephant(d.x, d.y, d.radius * 1.7);
+    } else if (d.type === "treat") {
+      ctx.font = "700 " + Math.round(d.radius * 1.6) + "px Manrope, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(d.treat, d.x, d.y);
+      ctx.textBaseline = "alphabetic";
     } else {
       ctx.fillStyle = "rgba(255, 250, 225, 0.22)";
       ctx.beginPath();
@@ -1383,7 +1468,7 @@ function drawRhythm() {
   }
 }
 
-/* ========== Ниво 5: въпроси ========== */
+/* ========== Ниво 6: въпроси ========== */
 
 function shuffledIndexes(count) {
   const list = [];
@@ -1554,7 +1639,529 @@ function drawQuiz() {
   ctx.textAlign = "center";
 }
 
-/* ========== Ниво 6: спасяване ========== */
+/* ========== Ниво 5: избухващи сърца ========== */
+
+function spawnPopHeart() {
+  const roll = Math.random();
+  let type = "good";
+  if (roll < 0.2) {
+    type = "bad";
+  } else if (roll < 0.28) {
+    type = "elephant";
+  } else if (roll < 0.37) {
+    type = "treat";
+  }
+
+  const size = u(rand(13, 19));
+  const margin = size * 2.4;
+  const life = type === "good" ? 1.75 : 2.1;
+
+  popState.items.push({
+    x: rand(margin, WORLD.w - margin),
+    y: rand(u(56) + margin, WORLD.h - margin - u(8)),
+    size,
+    life,
+    maxLife: life,
+    rot: rand(-0.35, 0.35),
+    type,
+    treat: type === "treat" ? pick(TREATS) : null,
+  });
+}
+
+function updatePop(dt) {
+  popState.spawnTimer += dt;
+  const gap = Math.max(0.55, 0.95 - popState.popped * 0.02);
+  if (popState.spawnTimer >= gap) {
+    popState.spawnTimer = 0;
+    spawnPopHeart();
+  }
+
+  const slow = slowFactor();
+  const next = [];
+  for (const item of popState.items) {
+    item.life -= dt * slow;
+    if (item.life <= 0) {
+      if (item.type === "good") {
+        popState.missed += 1;
+        pushFloater(item.x, item.y, "Изпуснато", "255,170,190");
+        if (popState.missed % 4 === 0) {
+          hurt(item.x, item.y);
+        }
+      }
+      continue;
+    }
+    next.push(item);
+  }
+  popState.items = next;
+
+  if (popState.popped >= level().goal) {
+    completeLevel();
+  }
+}
+
+function tapPop(x, y) {
+  for (let i = popState.items.length - 1; i >= 0; i -= 1) {
+    const item = popState.items[i];
+    /* щедра цел, за да е удобно с пръст */
+    const reach = item.size * 1.7 + u(6);
+    const dx = x - item.x;
+    const dy = y - item.y;
+    if (dx * dx + dy * dy > reach * reach) {
+      continue;
+    }
+
+    popState.items.splice(i, 1);
+    if (item.type === "bad") {
+      hurt(item.x, item.y);
+    } else if (item.type === "elephant") {
+      grantBoost(randomBoostType(), item.x, item.y);
+    } else if (item.type === "treat") {
+      reward(item.x, item.y, 3, 9, item.treat + " " + TREAT_LABEL[item.treat]);
+    } else {
+      popState.popped += 1;
+      reward(item.x, item.y, 3, 6);
+    }
+    return;
+  }
+}
+
+function drawPop() {
+  for (const item of popState.items) {
+    const t = 1 - item.life / item.maxLife;
+    let scale = 1;
+    if (t < 0.16) {
+      scale = t / 0.16;
+    } else if (t > 0.7) {
+      scale = Math.max(0.2, 1 - (t - 0.7) / 0.3);
+    }
+
+    const s = item.size * scale;
+    if (item.type === "elephant") {
+      drawElephant(item.x, item.y, s * 1.8);
+    } else if (item.type === "bad") {
+      drawBrokenHeart(item.x, item.y, s, item.rot);
+    } else if (item.type === "treat") {
+      ctx.font = "700 " + Math.round(s * 1.7) + "px Manrope, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(item.treat, item.x, item.y);
+      ctx.textBaseline = "alphabetic";
+    } else {
+      drawGoldHeart(item.x, item.y, s, item.rot);
+    }
+
+    /* колко живот остава на сърцето */
+    ctx.strokeStyle = "rgba(255, 240, 210, 0.4)";
+    ctx.lineWidth = u(1.6);
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, item.size * 1.7, -Math.PI / 2, -Math.PI / 2 + (item.life / item.maxLife) * Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+/* ========== Ниво 7: две по две ========== */
+
+function buildPairsDeck() {
+  const emojis = STORY.pairEmojis.slice(0, 8);
+  const order = shuffledIndexes(16);
+  pairsState.cards = order.map((i) => ({ emoji: emojis[i % 8], state: "down" }));
+  pairsState.firstIndex = -1;
+  pairsState.pendingA = -1;
+  pairsState.pendingB = -1;
+  pairsState.lock = 0;
+  pairsState.matched = 0;
+  pairsState.mismatches = 0;
+}
+
+function updatePairs(dt) {
+  if (pairsState.lock > 0) {
+    pairsState.lock -= dt;
+    if (pairsState.lock <= 0) {
+      pairsState.lock = 0;
+      const a = pairsState.cards[pairsState.pendingA];
+      const b = pairsState.cards[pairsState.pendingB];
+      if (a) {
+        a.state = "down";
+      }
+      if (b) {
+        b.state = "down";
+      }
+      pairsState.pendingA = -1;
+      pairsState.pendingB = -1;
+    }
+  }
+}
+
+function tapPairs(x, y) {
+  if (pairsState.lock > 0) {
+    return;
+  }
+
+  for (let i = 0; i < pairsState.slots.length; i += 1) {
+    const s = pairsState.slots[i];
+    const card = pairsState.cards[i];
+    if (!card || card.state !== "down") {
+      continue;
+    }
+    if (x < s.x || x > s.x + s.w || y < s.y || y > s.y + s.h) {
+      continue;
+    }
+
+    card.state = "up";
+    sfx.click();
+
+    if (pairsState.firstIndex === -1) {
+      pairsState.firstIndex = i;
+      return;
+    }
+
+    const first = pairsState.cards[pairsState.firstIndex];
+    if (first.emoji === card.emoji) {
+      first.state = "done";
+      card.state = "done";
+      pairsState.matched += 1;
+      reward(s.x + s.w / 2, s.y + s.h / 2, 4, 7, first.emoji + first.emoji);
+      if (pairsState.matched >= level().goal) {
+        completeLevel();
+      }
+    } else {
+      pairsState.mismatches += 1;
+      pairsState.pendingA = pairsState.firstIndex;
+      pairsState.pendingB = i;
+      pairsState.lock = 0.9;
+      if (pairsState.mismatches % 5 === 0) {
+        hurt(s.x + s.w / 2, s.y + s.h / 2);
+      } else {
+        sfx.miss();
+      }
+    }
+    pairsState.firstIndex = -1;
+    return;
+  }
+}
+
+function drawPairs() {
+  const slots = pairsState.slots;
+
+  for (let i = 0; i < slots.length; i += 1) {
+    const s = slots[i];
+    const card = pairsState.cards[i];
+    const state = card ? card.state : "down";
+
+    let fill = "rgba(255,255,255,0.09)";
+    let stroke = "rgba(255, 235, 245, 0.34)";
+    if (state === "done") {
+      fill = "rgba(150, 235, 180, 0.24)";
+      stroke = "rgba(180, 255, 205, 0.8)";
+    } else if (state === "up") {
+      fill = "rgba(255, 245, 250, 0.22)";
+      stroke = "rgba(255, 245, 250, 0.9)";
+    }
+
+    ctx.fillStyle = fill;
+    roundedRect(s.x, s.y, s.w, s.h, u(10));
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = u(1.6);
+    roundedRect(s.x, s.y, s.w, s.h, u(10));
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (state === "down") {
+      drawHeart(s.x + s.w / 2, s.y + s.h / 2, Math.min(s.w, s.h) * 0.16, "rgba(255, 225, 236, 0.35)", 0);
+    } else if (card) {
+      ctx.font = "700 " + Math.round(Math.min(s.w, s.h) * 0.5) + "px Manrope, sans-serif";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(card.emoji, s.x + s.w / 2, s.y + s.h / 2 + u(1));
+    }
+    ctx.textBaseline = "alphabetic";
+  }
+}
+
+/* ========== Ниво 8: полет на сърцето ========== */
+
+function flapHeart() {
+  flightState.started = true;
+  flightState.vy = -u(300);
+  spawnBurst(flightState.x, flightState.y + u(10), "255,220,228", 6);
+  sfx.good();
+}
+
+function spawnFlightGate() {
+  const top = u(46);
+  const gapH = Math.max(u(120), u(172) - flightState.passed * u(4));
+  const gapY = rand(top + u(20), WORLD.h - u(20) - gapH);
+
+  flightState.gates.push({
+    x: WORLD.w + u(40),
+    w: u(34),
+    gapY,
+    gapH,
+    passed: false,
+  });
+}
+
+function updateFlight(dt) {
+  const slow = slowFactor();
+  const top = u(46);
+  const r = flightState.r;
+
+  if (!flightState.started) {
+    flightState.y = WORLD.h / 2 + Math.sin(runTime * 2.2) * u(10);
+  } else {
+    flightState.vy += u(560) * dt;
+    flightState.y += flightState.vy * dt;
+  }
+
+  flightState.grace = Math.max(0, flightState.grace - dt);
+
+  /* таван и земя */
+  if (flightState.y < top + r) {
+    flightState.y = top + r;
+    flightState.vy = 0;
+  }
+  if (flightState.y > WORLD.h - r) {
+    flightState.y = WORLD.h - r;
+    flightState.vy = -u(140);
+    if (flightState.started && flightState.grace <= 0) {
+      hurt(flightState.x, flightState.y);
+      flightState.grace = 1.4;
+    }
+  }
+
+  if (flightState.started) {
+    flightState.spawnTimer += dt;
+    const gap = Math.max(1.45, 2 - flightState.passed * 0.05);
+    if (flightState.spawnTimer >= gap) {
+      flightState.spawnTimer = 0;
+      spawnFlightGate();
+    }
+  }
+
+  const speed = (u(140) + flightState.passed * u(4)) * slow;
+  const next = [];
+  for (const g of flightState.gates) {
+    g.x -= speed * dt;
+
+    const inGateX = flightState.x + r > g.x && flightState.x - r < g.x + g.w;
+    const outsideGap = flightState.y - r < g.gapY || flightState.y + r > g.gapY + g.gapH;
+    if (inGateX && outsideGap && flightState.grace <= 0) {
+      hurt(flightState.x, flightState.y);
+      flightState.grace = 1.4;
+      /* връщаме я в пролуката, за да продължи полета */
+      flightState.y = g.gapY + g.gapH / 2;
+      flightState.vy = 0;
+    }
+
+    if (!g.passed && g.x + g.w < flightState.x - r) {
+      g.passed = true;
+      flightState.passed += 1;
+      reward(flightState.x, flightState.y, 3, 6, "Порта ✓");
+    }
+
+    if (g.x + g.w > -u(10)) {
+      next.push(g);
+    }
+  }
+  flightState.gates = next;
+
+  if (flightState.passed >= level().goal) {
+    completeLevel();
+  }
+}
+
+function drawFlight() {
+  const top = u(46);
+
+  for (const g of flightState.gates) {
+    ctx.fillStyle = "rgba(238, 232, 255, 0.2)";
+    ctx.strokeStyle = "rgba(238, 232, 255, 0.45)";
+    ctx.lineWidth = u(1.6);
+
+    roundedRect(g.x, top, g.w, Math.max(u(4), g.gapY - top), u(12));
+    ctx.fill();
+    ctx.stroke();
+
+    roundedRect(g.x, g.gapY + g.gapH, g.w, Math.max(u(4), WORLD.h - g.gapY - g.gapH), u(12));
+    ctx.fill();
+    ctx.stroke();
+
+    /* пухкави краища като облачета */
+    ctx.fillStyle = "rgba(238, 232, 255, 0.3)";
+    ctx.beginPath();
+    ctx.arc(g.x + g.w / 2, g.gapY, g.w * 0.55, 0, Math.PI * 2);
+    ctx.arc(g.x + g.w / 2, g.gapY + g.gapH, g.w * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const blink = flightState.grace > 0 && Math.floor(performance.now() / 90) % 2 === 0;
+  if (!blink) {
+    const glow = ctx.createRadialGradient(flightState.x, flightState.y, u(3), flightState.x, flightState.y, u(34));
+    glow.addColorStop(0, "rgba(255, 226, 180, 0.3)");
+    glow.addColorStop(1, "rgba(255, 226, 180, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(flightState.x - u(34), flightState.y - u(34), u(68), u(68));
+
+    const rot = clamp(flightState.vy / u(520), -0.45, 0.6);
+    drawGoldHeart(flightState.x, flightState.y, flightState.r, rot);
+  }
+
+  if (!flightState.started) {
+    ctx.fillStyle = "rgba(255, 248, 251, 0.9)";
+    ctx.font = font(14, 700);
+    ctx.textAlign = "center";
+    ctx.fillText("Тапни, за да полети сърцето", WORLD.w / 2, WORLD.h * 0.32);
+  }
+}
+
+/* ========== Ниво 9: нашата история ========== */
+
+function spawnStoryBubble() {
+  if (storyState.index >= STORY.moments.length) {
+    return;
+  }
+  const moment = STORY.moments[storyState.index];
+  const baseX = rand(WORLD.w * 0.25, WORLD.w * 0.75);
+
+  storyState.bubble = {
+    when: moment.when,
+    baseX,
+    x: baseX,
+    y: WORLD.h - u(70),
+    t: rand(0, 6),
+    size: u(24),
+  };
+}
+
+function updateStory(dt) {
+  if (storyState.showTimer > 0) {
+    storyState.showTimer -= dt;
+    if (storyState.showTimer <= 0) {
+      storyState.showTimer = 0;
+      storyState.showText = "";
+      storyState.showWhen = "";
+      if (storyState.collected >= level().goal) {
+        completeLevel();
+        return;
+      }
+      spawnStoryBubble();
+    }
+    return;
+  }
+
+  if (!storyState.bubble) {
+    spawnStoryBubble();
+    return;
+  }
+
+  const b = storyState.bubble;
+  b.t += dt;
+  b.x = b.baseX + Math.sin(b.t * 1.4) * u(26);
+  b.y = Math.max(u(84), b.y - u(16) * dt);
+}
+
+function tapStory(x, y) {
+  const b = storyState.bubble;
+  if (!b || storyState.showTimer > 0) {
+    return;
+  }
+
+  const reach = b.size * 2;
+  const dx = x - b.x;
+  const dy = y - b.y;
+  if (dx * dx + dy * dy > reach * reach) {
+    return;
+  }
+
+  const moment = STORY.moments[storyState.index];
+  storyState.index += 1;
+  storyState.collected += 1;
+  storyState.bubble = null;
+  storyState.showWhen = moment.when;
+  storyState.showText = moment.text;
+  /* по-дълъг текст стои по-дълго на екрана, снимката добавя време */
+  storyState.showTimer = clamp(1.6 + moment.text.length * 0.05, 2.4, 7) + (moment.photo ? 1.4 : 0);
+
+  reward(b.x, b.y, 4, 8, "💗");
+  sfx.right();
+}
+
+function drawStory() {
+  /* събраните спомени долу като малки сърца */
+  for (let i = 0; i < storyState.collected; i += 1) {
+    drawGoldHeart(u(18) + i * u(20), WORLD.h - u(16), u(6), 0);
+  }
+
+  if (storyState.showText) {
+    ctx.fillStyle = "rgba(20, 4, 16, 0.5)";
+    ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+
+    const pad = u(18);
+    let textTop = WORLD.h * 0.34;
+
+    /* снимка към момента, ако има и е заредена */
+    const img = storyState.photos[storyState.showWhen];
+    if (img && img.complete && img.naturalWidth) {
+      const maxW = WORLD.w * 0.6;
+      const maxH = WORLD.h * 0.34;
+      const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
+      const w = img.naturalWidth * scale;
+      const h = img.naturalHeight * scale;
+      const x = (WORLD.w - w) / 2;
+      const y = u(54);
+
+      ctx.save();
+      roundedRect(x, y, w, h, u(10));
+      ctx.clip();
+      ctx.drawImage(img, x, y, w, h);
+      ctx.restore();
+
+      ctx.strokeStyle = "rgba(255, 240, 220, 0.7)";
+      ctx.lineWidth = u(2);
+      roundedRect(x, y, w, h, u(10));
+      ctx.stroke();
+
+      textTop = y + h + u(26);
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = font(12, 700);
+    ctx.fillStyle = "rgba(255, 224, 180, 0.95)";
+    ctx.fillText(storyState.showWhen, WORLD.w / 2, textTop);
+
+    ctx.font = font(15, 700);
+    ctx.fillStyle = "rgba(255, 248, 251, 0.97)";
+    const lines = wrapText(storyState.showText, WORLD.w - pad * 2);
+    const lineH = u(21);
+    const startY = textTop + u(28);
+    for (let i = 0; i < lines.length; i += 1) {
+      ctx.fillText(lines[i], WORLD.w / 2, startY + i * lineH);
+    }
+    return;
+  }
+
+  const b = storyState.bubble;
+  if (!b) {
+    return;
+  }
+
+  const glow = ctx.createRadialGradient(b.x, b.y, u(4), b.x, b.y, b.size * 2.6);
+  glow.addColorStop(0, "rgba(255, 226, 180, 0.35)");
+  glow.addColorStop(1, "rgba(255, 226, 180, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(b.x - b.size * 2.6, b.y - b.size * 2.6, b.size * 5.2, b.size * 5.2);
+
+  const bob = Math.sin(b.t * 3) * 0.08;
+  drawGoldHeart(b.x, b.y, b.size * 0.72, bob);
+
+  ctx.font = font(12, 800);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255, 248, 251, 0.95)";
+  ctx.fillText(b.when, b.x, b.y + b.size * 1.9);
+}
+
+/* ========== Ниво 10: спасяване ========== */
 
 function spawnRescueItem() {
   const roll = Math.random();
@@ -1771,6 +2378,18 @@ function objectiveText() {
   if (lv.mode === "quiz") {
     return "Верни: " + quizState.correct + " / " + lv.goal;
   }
+  if (lv.mode === "pop") {
+    return "Сърца: " + popState.popped + " / " + lv.goal + "   ✗ " + popState.missed;
+  }
+  if (lv.mode === "pairs") {
+    return "Двойки: " + pairsState.matched + " / " + lv.goal;
+  }
+  if (lv.mode === "flight") {
+    return "Порти: " + flightState.passed + " / " + lv.goal;
+  }
+  if (lv.mode === "story") {
+    return "Спомени: " + storyState.collected + " / " + lv.goal;
+  }
   return "Слончета: " + rescueState.rescued + " / " + lv.goal;
 }
 
@@ -1826,6 +2445,14 @@ function render(now) {
     drawRhythm();
   } else if (mode === "quiz") {
     drawQuiz();
+  } else if (mode === "pop") {
+    drawPop();
+  } else if (mode === "pairs") {
+    drawPairs();
+  } else if (mode === "flight") {
+    drawFlight();
+  } else if (mode === "story") {
+    drawStory();
   } else {
     drawRescue();
   }
@@ -1863,6 +2490,18 @@ function levelProgress() {
   }
   if (lv.mode === "quiz") {
     return quizState.correct / lv.goal;
+  }
+  if (lv.mode === "pop") {
+    return popState.popped / lv.goal;
+  }
+  if (lv.mode === "pairs") {
+    return pairsState.matched / lv.goal;
+  }
+  if (lv.mode === "flight") {
+    return flightState.passed / lv.goal;
+  }
+  if (lv.mode === "story") {
+    return storyState.collected / lv.goal;
   }
   return rescueState.rescued / lv.goal;
 }
@@ -1973,6 +2612,26 @@ const TOUCH_LAYOUTS = {
     ],
     hint: "Води сърцето с пръст или <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>",
   },
+  pop: {
+    cols: 0,
+    buttons: [],
+    hint: "Тапни златните сърца, преди да се стопят",
+  },
+  pairs: {
+    cols: 0,
+    buttons: [],
+    hint: "Тапни картите, за да ги обърнеш",
+  },
+  flight: {
+    cols: 0,
+    buttons: [{ label: "Подскок 🪽", act: "flap" }],
+    hint: "Тапни полето, бутона или <kbd>интервал</kbd>",
+  },
+  story: {
+    cols: 0,
+    buttons: [],
+    hint: "Хвани спомена и го прочети",
+  },
 };
 
 function doAction(act, down) {
@@ -1988,6 +2647,10 @@ function doAction(act, down) {
     moveLane(-1);
   } else if (down && act === "lane-right") {
     moveLane(1);
+  } else if (down && act === "flap") {
+    if (appState === STATE.PLAY) {
+      flapHeart();
+    }
   } else if (down && act.startsWith("col")) {
     if (appState === STATE.PLAY) {
       hitRhythm(Number(act.slice(3)));
@@ -2079,6 +2742,7 @@ function showOverlay(title, text, buttonText, action, useTypewriter) {
   restartBtn.textContent = buttonText;
   overlayAction = action;
   reviveBox.classList.add("hidden");
+  continueBtn.classList.add("hidden");
   overlay.classList.remove("hidden");
   restartBtn.classList.remove("hidden");
 
@@ -2091,12 +2755,23 @@ function showOverlay(title, text, buttonText, action, useTypewriter) {
   }
 }
 
+function savedLevelIndex() {
+  return clamp(Number(readStore("love-rain-level", "0")) || 0, 0, LEVELS.length - 1);
+}
+
 function showIntro() {
   appState = STATE.INTRO;
   currentLevel = 0;
   layoutLevel();
   showOverlay("Любовен Дъжд", STORY.intro.join("\n"), "Да започваме 💘", "intro-start", true);
   setHint("🐘 Слончето пази късмета");
+
+  /* стигнала е донякъде преди - предлагаме да продължи оттам */
+  const saved = savedLevelIndex();
+  if (saved > 0) {
+    continueBtn.textContent = "Продължи от ниво " + (saved + 1) + " ▶";
+    continueBtn.classList.remove("hidden");
+  }
 }
 
 function showLevelRules(index) {
@@ -2155,6 +2830,36 @@ function resetLevelState(index) {
     quizState.locked = 0;
     quizState.note = "";
     quizState.picks = [];
+  } else if (mode === "pop") {
+    popState.items = [];
+    popState.popped = 0;
+    popState.missed = 0;
+    popState.spawnTimer = 0;
+  } else if (mode === "pairs") {
+    buildPairsDeck();
+  } else if (mode === "flight") {
+    flightState.gates = [];
+    flightState.passed = 0;
+    flightState.vy = 0;
+    flightState.y = 0;
+    flightState.grace = 1.2;
+    flightState.spawnTimer = 0;
+    flightState.started = false;
+  } else if (mode === "story") {
+    storyState.index = 0;
+    storyState.collected = 0;
+    storyState.bubble = null;
+    storyState.showTimer = 0.5;
+    storyState.showWhen = "";
+    storyState.showText = "";
+    /* снимките се зареждат отрано, за да са готови при показване */
+    for (const moment of STORY.moments) {
+      if (moment.photo && !storyState.photos[moment.when]) {
+        const img = new Image();
+        img.src = moment.photo;
+        storyState.photos[moment.when] = img;
+      }
+    }
   } else if (mode === "rescue") {
     rescueState.items = [];
     rescueState.rescued = 0;
@@ -2213,12 +2918,22 @@ function completeLevel() {
   spawnBurst(WORLD.w / 2, WORLD.h / 2, "255,230,236", 26);
 
   if (currentLevel >= LEVELS.length - 1) {
-    openProposal();
+    writeStore("love-rain-level", "0"); /* финалът е стигнат - чисто начало при повторение */
+    showLoveLetter();
     return;
   }
 
+  writeStore("love-rain-level", String(currentLevel + 1));
   const note = STORY.notes[currentLevel] || "Продължаваме.";
   showOverlay("Ниво минато 💗", note, "Продължи", "note-continue", true);
+}
+
+/* Писмото идва след последното ниво, точно преди въпроса. */
+function showLoveLetter() {
+  appState = STATE.NOTE;
+  stopMusic();
+  startMusic(0.3, "finale", "triangle");
+  showOverlay("Писмо за теб 💌", STORY.letter.join("\n"), "…и още нещо 💘", "letter-continue", true);
 }
 
 function showRevivePrompt() {
@@ -2298,7 +3013,7 @@ function tryRevive() {
   updateHud();
 }
 
-function startNewRun() {
+function startRunAt(index) {
   closeProposal();
   score = 0;
   lives = 3;
@@ -2308,8 +3023,12 @@ function startNewRun() {
   runTime = 0;
   hudCache.levelFill = -1;
   hudCache.loveFill = -1;
-  showLevelRules(0);
+  showLevelRules(index);
   updateHud();
+}
+
+function startNewRun() {
+  startRunAt(0);
 }
 
 function pauseGame() {
@@ -2350,6 +3069,9 @@ function openProposal() {
   proposalYesBtn.textContent = "Дааа 💘";
   proposalDetails.classList.add("hidden");
   proposalDetails.innerHTML = "";
+  dateChoices.classList.add("hidden");
+  dateChoices.innerHTML = "";
+  planLi = null;
   dateProposal.classList.remove("hidden");
 
   stopMusic();
@@ -2404,7 +3126,7 @@ function acceptProposal() {
     proposalDetails.appendChild(li);
   }
 
-  /* Нейните отговори от ниво 5 - празно е само ако нивото е прескочено. */
+  /* Нейните отговори от нивото с въпросите - празно само ако е прескочено. */
   if (quizState.picks.length) {
     const lead = document.createElement("li");
     lead.textContent = STORY.proposal.picksLead;
@@ -2420,10 +3142,45 @@ function acceptProposal() {
 
   proposalDetails.classList.remove("hidden");
 
+  /* Тя избира какво ще правим - изборът влиза в картичката. */
+  dateChoices.innerHTML = "";
+  const lead = document.createElement("p");
+  lead.className = "plan-lead";
+  lead.textContent = STORY.proposal.planQuestion;
+  dateChoices.appendChild(lead);
+
+  for (const option of STORY.proposal.planOptions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = option;
+    btn.addEventListener("click", () => choosePlan(option, btn));
+    dateChoices.appendChild(btn);
+  }
+  dateChoices.classList.remove("hidden");
+
   pulse = 1;
   celebrate(18);
   dropConfetti(90);
   sfx.win();
+}
+
+let planLi = null;
+
+function choosePlan(option, chosenBtn) {
+  for (const btn of dateChoices.querySelectorAll("button")) {
+    btn.classList.toggle("chosen", btn === chosenBtn);
+  }
+
+  if (!planLi) {
+    planLi = document.createElement("li");
+    planLi.className = "plan-line";
+    proposalDetails.appendChild(planLi);
+  }
+  planLi.textContent = "✓ " + STORY.proposal.planLead + " " + option;
+
+  celebrate(3);
+  dropConfetti(20);
+  sfx.bonus();
 }
 
 function dodgeMaybeButton() {
@@ -2480,6 +3237,14 @@ function update(dt, now) {
     updateRhythm(dt);
   } else if (mode === "quiz") {
     updateQuiz(dt);
+  } else if (mode === "pop") {
+    updatePop(dt);
+  } else if (mode === "pairs") {
+    updatePairs(dt);
+  } else if (mode === "flight") {
+    updateFlight(dt);
+  } else if (mode === "story") {
+    updateStory(dt);
   } else {
     updateRescue(dt);
   }
@@ -2551,6 +3316,14 @@ function onPointerDown(event) {
     tapMemory(point.x, point.y);
   } else if (mode === "quiz") {
     tapQuiz(point.x, point.y);
+  } else if (mode === "pop") {
+    tapPop(point.x, point.y);
+  } else if (mode === "pairs") {
+    tapPairs(point.x, point.y);
+  } else if (mode === "flight") {
+    flapHeart();
+  } else if (mode === "story") {
+    tapStory(point.x, point.y);
   } else if (mode === "rhythm") {
     hitRhythm(clamp(Math.floor(point.x / rhythmState.colW), 0, 3));
   } else if (mode === "catch") {
@@ -2637,6 +3410,12 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (mode === "flight" && (key === " " || key === "arrowup" || key === "w")) {
+    event.preventDefault();
+    flapHeart();
+    return;
+  }
+
   if (key === "arrowleft" || key === "a") {
     event.preventDefault();
     KEY.left = true;
@@ -2702,6 +3481,15 @@ restartBtn.addEventListener("click", () => {
     return;
   }
 
+  if (overlayAction === "letter-continue") {
+    if (typeTimer) {
+      finishTyping();
+      return;
+    }
+    openProposal();
+    return;
+  }
+
   if (overlayAction === "resume") {
     resumeGame();
     return;
@@ -2717,6 +3505,11 @@ restartBtn.addEventListener("click", () => {
 
 /* тап върху текста прескача пишещата машина */
 overlayText.addEventListener("click", finishTyping);
+
+continueBtn.addEventListener("click", () => {
+  sfx.click();
+  startRunAt(savedLevelIndex());
+});
 
 reviveBtn.addEventListener("click", tryRevive);
 reviveInput.addEventListener("keydown", (event) => {

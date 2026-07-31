@@ -334,6 +334,11 @@ canvas.hit {
   display: none;
 }
 
+/* Единственият бутон (напр. "Подскок" в полета) заема цялата ширина. */
+.touch-controls .touch-btn:only-child {
+  grid-column: 1 / -1;
+}
+
 .touch-controls.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .touch-controls.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
@@ -564,6 +569,43 @@ button:active {
 
 .proposal-details.hidden {
   display: none;
+}
+
+.date-choices {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  animation: fadeIn 500ms ease;
+}
+
+.date-choices.hidden {
+  display: none;
+}
+
+.date-choices .plan-lead {
+  margin: 0 0 2px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.date-choices button {
+  min-height: 40px;
+  padding: 8px 10px;
+  font-weight: 700;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 235, 240, 0.4);
+  background: rgba(255, 245, 248, 0.1);
+}
+
+.date-choices button.chosen {
+  background: linear-gradient(130deg, #ffd166, #ff88ad 70%);
+  border-color: transparent;
+  color: #3c0f22;
+}
+
+.overlay-inner .ghost {
+  margin-top: 8px;
 }
 
 .proposal-actions {
