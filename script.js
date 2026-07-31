@@ -3958,6 +3958,14 @@ voiceContinueBtn.addEventListener("click", () => {
   sfx.click();
   leaveVoiceMoment();
 });
+
+/* Застраховка: ако браузърът все пак е спрял автопускането,
+   първият допир където и да е по екрана пуска гласа. */
+voiceMoment.addEventListener("pointerdown", () => {
+  if (voiceAudio && voiceReady && voiceAudio.paused && !voiceAudio.ended && voiceAudio.currentTime === 0) {
+    voiceAudio.play().catch(() => {});
+  }
+});
 proposalReplayBtn.addEventListener("click", () => {
   sfx.click();
   startNewRun();
