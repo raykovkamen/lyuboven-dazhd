@@ -40,6 +40,7 @@ const proposalSubtext = document.getElementById("proposalSubtext");
 const proposalDetails = document.getElementById("proposalDetails");
 const dateChoices = document.getElementById("dateChoices");
 const voiceBtn = document.getElementById("voiceBtn");
+const voiceImageEl = document.getElementById("voiceImage");
 const proposalYesBtn = document.getElementById("proposalYesBtn");
 const proposalMaybeBtn = document.getElementById("proposalMaybeBtn");
 const proposalReplayBtn = document.getElementById("proposalReplayBtn");
@@ -3376,18 +3377,31 @@ function preloadVoice() {
   }
   voiceAudio = new Audio(STORY.voiceNote);
   voiceAudio.preload = "auto";
-  voiceAudio.addEventListener("canplaythrough", () => {
-    voiceReady = true;
-    if (proposalAccepted) {
-      voiceBtn.classList.remove("hidden");
-    }
-  });
   voiceAudio.addEventListener("ended", () => {
     voiceBtn.textContent = VOICE_BTN_TEXT;
+    voiceImageEl.classList.add("hidden");
     if (audio.musicBus) {
       audio.musicBus.gain.value = 0.26;
     }
   });
+
+  if (STORY.voiceImage) {
+    voiceImageEl.src = STORY.voiceImage;
+  }
+
+  /* Съществува ли файлът питаме с fetch - браузърите отлагат зареждането
+     на <audio> във фонови табове и при пестене на данни, а самото аудио
+     така или иначе се зарежда мигновено при нейния тап. */
+  fetch(STORY.voiceNote, { method: "HEAD" })
+    .then((response) => {
+      if (response.ok) {
+        voiceReady = true;
+        if (proposalAccepted) {
+          voiceBtn.classList.remove("hidden");
+        }
+      }
+    })
+    .catch(() => {});
 }
 
 function toggleVoice() {
@@ -3402,9 +3416,13 @@ function toggleVoice() {
     voiceAudio.currentTime = 0;
     voiceAudio.play().catch(() => {});
     voiceBtn.textContent = "Спри ⏸";
+    if (STORY.voiceImage) {
+      voiceImageEl.classList.remove("hidden");
+    }
   } else {
     voiceAudio.pause();
     voiceBtn.textContent = VOICE_BTN_TEXT;
+    voiceImageEl.classList.add("hidden");
     if (audio.musicBus) {
       audio.musicBus.gain.value = 0.26;
     }
@@ -3432,6 +3450,7 @@ function openProposal() {
   planLi = null;
   voiceBtn.classList.add("hidden");
   voiceBtn.textContent = VOICE_BTN_TEXT;
+  voiceImageEl.classList.add("hidden");
   preloadVoice();
   dateProposal.classList.remove("hidden");
 
