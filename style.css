@@ -110,6 +110,12 @@ body {
   font-size: clamp(1.25rem, 6vw, 1.8rem);
   line-height: 1.1;
   text-shadow: 0 0 18px rgba(255, 215, 225, 0.3);
+  /* Тайният пропуск е с бързи тапове тук - без селекция на текст,
+     иначе телефонът отваря "Копирай / Търси в Google". */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 .topbar-actions {
@@ -361,6 +367,11 @@ canvas.hit {
   background: rgba(255, 225, 233, 0.16);
   font-size: 0.76rem;
   font-weight: 600;
+  /* Тук също се тапва за тайния пропуск - без селекция на текст. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 .controls {
@@ -542,6 +553,13 @@ button:active {
   font-weight: 600;
   text-align: left;
   animation: fadeIn 500ms ease;
+}
+
+.proposal-details .picks-lead {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 235, 240, 0.4);
+  font-weight: 800;
 }
 
 .proposal-details.hidden {

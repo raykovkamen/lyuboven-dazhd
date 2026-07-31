@@ -39,7 +39,6 @@ const proposalSubtext = document.getElementById("proposalSubtext");
 const proposalDetails = document.getElementById("proposalDetails");
 const proposalYesBtn = document.getElementById("proposalYesBtn");
 const proposalMaybeBtn = document.getElementById("proposalMaybeBtn");
-const proposalShareBtn = document.getElementById("proposalShareBtn");
 const proposalReplayBtn = document.getElementById("proposalReplayBtn");
 const confettiLayer = document.getElementById("confettiLayer");
 
@@ -666,6 +665,8 @@ const quizState = {
   chosen: -1,
   locked: 0,
   note: "",
+  /* Какво е избрала на всеки въпрос - финалът го показва. */
+  picks: [],
 };
 
 const rescueState = {
@@ -1454,16 +1455,12 @@ function answerQuiz(index) {
   quizState.chosen = index;
   quizState.locked = 1.5;
 
-  if (index === question.correct) {
-    quizState.correct += 1;
-    quizState.note = question.note;
-    reward(box.x + box.w / 2, box.y + box.h / 2, 4, 8, "Вярно!");
-    sfx.right();
-  } else {
-    quizState.note = "Правилното е: " + question.answers[question.correct];
-    hurt(box.x + box.w / 2, box.y + box.h / 2);
-    sfx.wrong();
-  }
+  /* Тук няма грешни отговори - каквото избере тя, е вярното. */
+  quizState.correct += 1;
+  quizState.note = question.note;
+  quizState.picks.push(question.answers[index]);
+  reward(box.x + box.w / 2, box.y + box.h / 2, 4, 8, "Вярно!");
+  sfx.right();
 }
 
 function wrapText(text, maxWidth) {
@@ -1521,17 +1518,14 @@ function drawQuiz() {
 
   for (let i = 0; i < quizState.boxes.length; i += 1) {
     const b = quizState.boxes[i];
-    const isChosen = quizState.chosen === i;
-    const isCorrect = quizState.locked > 0 && i === question.correct;
+    /* Избраният отговор винаги светва зелено - тя не греши. */
+    const isChosen = quizState.locked > 0 && quizState.chosen === i;
 
     let fill = "rgba(255,255,255,0.09)";
     let stroke = "rgba(255, 235, 245, 0.34)";
-    if (isCorrect) {
+    if (isChosen) {
       fill = "rgba(150, 235, 180, 0.28)";
       stroke = "rgba(180, 255, 205, 0.9)";
-    } else if (isChosen) {
-      fill = "rgba(255, 120, 145, 0.26)";
-      stroke = "rgba(255, 160, 180, 0.9)";
     }
 
     ctx.fillStyle = fill;
@@ -2160,6 +2154,7 @@ function resetLevelState(index) {
     quizState.chosen = -1;
     quizState.locked = 0;
     quizState.note = "";
+    quizState.picks = [];
   } else if (mode === "rescue") {
     rescueState.items = [];
     rescueState.rescued = 0;
@@ -2337,6 +2332,7 @@ function resumeGame() {
 /* ========== Финал ========== */
 
 let maybeCount = 0;
+let proposalAccepted = false;
 
 function openProposal() {
   appState = STATE.PROPOSAL;
@@ -2345,6 +2341,7 @@ function openProposal() {
   touchControls.innerHTML = "";
 
   maybeCount = 0;
+  proposalAccepted = false;
   proposalQuestion.textContent = STORY.fullName + ", " + STORY.proposal.question;
   proposalSubtext.textContent = STORY.proposal.subtext;
   proposalMaybeBtn.textContent = "Може бии...";
@@ -2353,8 +2350,6 @@ function openProposal() {
   proposalYesBtn.textContent = "Дааа 💘";
   proposalDetails.classList.add("hidden");
   proposalDetails.innerHTML = "";
-  proposalShareBtn.classList.add("hidden");
-  proposalShareBtn.textContent = "Сподели 💌";
   dateProposal.classList.remove("hidden");
 
   stopMusic();
@@ -2396,9 +2391,10 @@ function dropConfetti(count) {
 }
 
 function acceptProposal() {
+  proposalAccepted = true;
   proposalQuestion.textContent = STORY.proposal.yesTitle;
   proposalSubtext.textContent = STORY.proposal.yesText;
-  proposalYesBtn.textContent = "Нямам търпение 💞";
+  proposalYesBtn.textContent = "Обади ми се 📞";
   proposalMaybeBtn.classList.add("hidden");
 
   proposalDetails.innerHTML = "";
@@ -2407,8 +2403,22 @@ function acceptProposal() {
     li.textContent = line;
     proposalDetails.appendChild(li);
   }
+
+  /* Нейните отговори от ниво 5 - празно е само ако нивото е прескочено. */
+  if (quizState.picks.length) {
+    const lead = document.createElement("li");
+    lead.textContent = STORY.proposal.picksLead;
+    lead.className = "picks-lead";
+    proposalDetails.appendChild(lead);
+
+    for (const answer of quizState.picks) {
+      const li = document.createElement("li");
+      li.textContent = "✓ " + answer;
+      proposalDetails.appendChild(li);
+    }
+  }
+
   proposalDetails.classList.remove("hidden");
-  proposalShareBtn.classList.remove("hidden");
 
   pulse = 1;
   celebrate(18);
@@ -2436,25 +2446,6 @@ function dodgeMaybeButton() {
   sfx.click();
 }
 
-function shareYes() {
-  const text = STORY.proposal.shareText;
-  if (navigator.share) {
-    navigator.share({ title: "Любовен Дъжд", text }).catch(() => {});
-    return;
-  }
-  if (navigator.clipboard) {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        proposalShareBtn.textContent = "Копирано ✓";
-      })
-      .catch(() => {
-        proposalShareBtn.textContent = text;
-      });
-    return;
-  }
-  proposalShareBtn.textContent = text;
-}
 
 /* ========== Цикъл ========== */
 
@@ -2744,9 +2735,14 @@ pauseBtn.addEventListener("click", () => {
   }
 });
 
-proposalYesBtn.addEventListener("click", acceptProposal);
+proposalYesBtn.addEventListener("click", () => {
+  if (proposalAccepted) {
+    window.location.href = "tel:" + STORY.phone;
+    return;
+  }
+  acceptProposal();
+});
 proposalMaybeBtn.addEventListener("click", dodgeMaybeButton);
-proposalShareBtn.addEventListener("click", shareYes);
 proposalReplayBtn.addEventListener("click", () => {
   sfx.click();
   startNewRun();
