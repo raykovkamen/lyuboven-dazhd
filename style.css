@@ -588,6 +588,16 @@ button:active {
   display: none;
 }
 
+#voiceCaption {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  opacity: 0.92;
+}
+
+#voiceMoment .proposal-card h2 {
+  margin-bottom: 12px;
+}
+
 .date-choices {
   display: grid;
   gap: 6px;

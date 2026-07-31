@@ -39,8 +39,11 @@ const proposalQuestion = document.getElementById("proposalQuestion");
 const proposalSubtext = document.getElementById("proposalSubtext");
 const proposalDetails = document.getElementById("proposalDetails");
 const dateChoices = document.getElementById("dateChoices");
-const voiceBtn = document.getElementById("voiceBtn");
+const voiceMoment = document.getElementById("voiceMoment");
+const voiceTitleEl = document.getElementById("voiceTitle");
+const voiceCaptionEl = document.getElementById("voiceCaption");
 const voiceImageEl = document.getElementById("voiceImage");
+const voiceContinueBtn = document.getElementById("voiceContinueBtn");
 const proposalYesBtn = document.getElementById("proposalYesBtn");
 const proposalMaybeBtn = document.getElementById("proposalMaybeBtn");
 const proposalReplayBtn = document.getElementById("proposalReplayBtn");
@@ -3239,6 +3242,7 @@ function showLoveLetter() {
   appState = STATE.NOTE;
   stopMusic();
   startMusic(0.3, "finale", "triangle");
+  preloadVoice(); /* докато чете, гласовото се зарежда */
   showOverlay("Писмо за теб 💌", STORY.letter.join("\n"), "…и още нещо 💘", "letter-continue", true);
 }
 
@@ -3365,9 +3369,8 @@ function resumeGame() {
 let maybeCount = 0;
 let proposalAccepted = false;
 
-/* Гласовото съобщение: бутонът се показва само ако файлът наистина
-   съществува - така пътят може да стои в story.js и преди качването. */
-const VOICE_BTN_TEXT = "Пусни гласово от мен 🎧";
+/* Гласовият момент: след писмото снимката изгрява и гласът тръгва сам.
+   Ако файлът липсва или не тръгне, "Продължи" винаги води напред. */
 let voiceAudio = null;
 let voiceReady = false;
 
@@ -3375,58 +3378,65 @@ function preloadVoice() {
   if (!STORY.voiceNote || voiceAudio) {
     return;
   }
-  voiceAudio = new Audio(STORY.voiceNote);
-  voiceAudio.preload = "auto";
+  voiceAudio = new Audio();
   voiceAudio.addEventListener("ended", () => {
-    voiceBtn.textContent = VOICE_BTN_TEXT;
-    voiceImageEl.classList.add("hidden");
-    if (audio.musicBus) {
-      audio.musicBus.gain.value = 0.26;
-    }
+    /* кратка пауза след последната дума и продължаваме сами */
+    setTimeout(leaveVoiceMoment, 800);
   });
 
   if (STORY.voiceImage) {
     voiceImageEl.src = STORY.voiceImage;
   }
 
-  /* Съществува ли файлът питаме с fetch - браузърите отлагат зареждането
-     на <audio> във фонови табове и при пестене на данни, а самото аудио
-     така или иначе се зарежда мигновено при нейния тап. */
-  fetch(STORY.voiceNote, { method: "HEAD" })
+  /* Сваляме файла с fetch и го подаваме локално - браузърите отлагат
+     мрежовото зареждане на <audio> във фонови табове и при пестене на
+     данни, а така гласът е готов на мига, без буфериране. */
+  fetch(STORY.voiceNote)
     .then((response) => {
-      if (response.ok) {
-        voiceReady = true;
-        if (proposalAccepted) {
-          voiceBtn.classList.remove("hidden");
-        }
+      if (!response.ok) {
+        throw new Error("missing");
       }
+      return response.blob();
+    })
+    .then((blob) => {
+      voiceAudio.src = URL.createObjectURL(blob);
+      voiceReady = true;
     })
     .catch(() => {});
 }
 
-function toggleVoice() {
-  if (!voiceAudio || !voiceReady) {
+function showVoiceMoment() {
+  if (!voiceReady || !voiceAudio) {
+    openProposal();
     return;
   }
-  if (voiceAudio.paused) {
-    unlockAudio();
-    if (audio.musicBus) {
-      audio.musicBus.gain.value = 0.05; /* музиката отстъпва на гласа */
-    }
-    voiceAudio.currentTime = 0;
-    voiceAudio.play().catch(() => {});
-    voiceBtn.textContent = "Спри ⏸";
-    if (STORY.voiceImage) {
-      voiceImageEl.classList.remove("hidden");
-    }
-  } else {
-    voiceAudio.pause();
-    voiceBtn.textContent = VOICE_BTN_TEXT;
-    voiceImageEl.classList.add("hidden");
-    if (audio.musicBus) {
-      audio.musicBus.gain.value = 0.26;
-    }
+
+  overlay.classList.add("hidden");
+  touchControls.innerHTML = "";
+  voiceTitleEl.textContent = STORY.voiceTitle || "Чуй ме за момент 🎧";
+  voiceCaptionEl.textContent = STORY.voiceCaption || "";
+  voiceMoment.classList.remove("hidden");
+
+  unlockAudio();
+  if (audio.musicBus) {
+    audio.musicBus.gain.value = 0.05; /* музиката отстъпва на гласа */
   }
+  voiceAudio.currentTime = 0;
+  voiceAudio.play().catch(() => {});
+}
+
+function leaveVoiceMoment() {
+  if (voiceMoment.classList.contains("hidden")) {
+    return;
+  }
+  voiceMoment.classList.add("hidden");
+  if (voiceAudio && !voiceAudio.paused) {
+    voiceAudio.pause();
+  }
+  if (audio.musicBus) {
+    audio.musicBus.gain.value = 0.26;
+  }
+  openProposal();
 }
 
 function openProposal() {
@@ -3448,10 +3458,6 @@ function openProposal() {
   dateChoices.classList.add("hidden");
   dateChoices.innerHTML = "";
   planLi = null;
-  voiceBtn.classList.add("hidden");
-  voiceBtn.textContent = VOICE_BTN_TEXT;
-  voiceImageEl.classList.add("hidden");
-  preloadVoice();
   dateProposal.classList.remove("hidden");
 
   stopMusic();
@@ -3463,6 +3469,7 @@ function openProposal() {
 
 function closeProposal() {
   dateProposal.classList.add("hidden");
+  voiceMoment.classList.add("hidden");
   confettiLayer.innerHTML = "";
   if (voiceAudio && !voiceAudio.paused) {
     voiceAudio.pause();
@@ -3543,10 +3550,6 @@ function acceptProposal() {
     dateChoices.appendChild(btn);
   }
   dateChoices.classList.remove("hidden");
-
-  if (voiceReady) {
-    voiceBtn.classList.remove("hidden");
-  }
 
   pulse = 1;
   celebrate(18);
@@ -3901,7 +3904,7 @@ restartBtn.addEventListener("click", () => {
       finishTyping();
       return;
     }
-    openProposal();
+    showVoiceMoment();
     return;
   }
 
@@ -3951,7 +3954,10 @@ proposalYesBtn.addEventListener("click", () => {
   acceptProposal();
 });
 proposalMaybeBtn.addEventListener("click", dodgeMaybeButton);
-voiceBtn.addEventListener("click", toggleVoice);
+voiceContinueBtn.addEventListener("click", () => {
+  sfx.click();
+  leaveVoiceMoment();
+});
 proposalReplayBtn.addEventListener("click", () => {
   sfx.click();
   startNewRun();

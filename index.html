@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lobster+Two:wght@700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <!-- ?v= се вдига при промяна, за да не сервира браузърът стар файл -->
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=13" />
 </head>
 <body>
   <div class="romance-fx" aria-hidden="true">
@@ -79,6 +79,15 @@
     </footer>
   </main>
 
+  <section id="voiceMoment" class="date-proposal hidden" aria-live="polite">
+    <div class="proposal-card">
+      <h2 id="voiceTitle">Чуй ме за момент 🎧</h2>
+      <img id="voiceImage" class="voice-image" alt="" />
+      <p id="voiceCaption"></p>
+      <button id="voiceContinueBtn" type="button" class="primary big">Продължи 💘</button>
+    </div>
+  </section>
+
   <section id="dateProposal" class="date-proposal hidden" aria-live="polite">
     <div class="proposal-fx" aria-hidden="true">
       <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
@@ -87,7 +96,6 @@
     <div class="proposal-card">
       <h2 id="proposalQuestion">Имам един важен въпрос...</h2>
       <p id="proposalSubtext">Ще излезеш ли на среща с мен? 💖</p>
-      <img id="voiceImage" class="voice-image hidden" alt="" />
       <ul id="proposalDetails" class="proposal-details hidden"></ul>
       <div id="dateChoices" class="date-choices hidden"></div>
       <div class="proposal-actions">
@@ -95,13 +103,12 @@
         <button id="proposalMaybeBtn" type="button">Може бии...</button>
       </div>
       <div class="proposal-secondary">
-        <button id="voiceBtn" type="button" class="ghost hidden">Пусни гласово от мен 🎧</button>
         <button id="proposalReplayBtn" type="button" class="ghost">Играй пак</button>
       </div>
     </div>
   </section>
 
-  <script src="story.js?v=12"></script>
-  <script src="script.js?v=12"></script>
+  <script src="story.js?v=13"></script>
+  <script src="script.js?v=13"></script>
 </body>
 </html>
