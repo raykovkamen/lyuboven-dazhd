@@ -2455,9 +2455,9 @@ function drawTopBar() {
     const mult = comboMult();
     const bob = Math.sin(performance.now() * 0.006) * u(4);
     ctx.textAlign = "center";
-    ctx.font = font(19, 800);
+    ctx.font = font(16, 800);
     ctx.fillStyle = "rgba(255, 238, 190, 0.95)";
-    ctx.fillText("РОМАНТИЧНО x" + mult + (mult === MAX_MULT ? " МАКС" : ""), WORLD.w / 2, u(52) + bob);
+    ctx.fillText("РОМАНТИЧНО МИ Е, РУСЕВА x" + mult + (mult === MAX_MULT ? " МАКС" : ""), WORLD.w / 2, u(52) + bob);
   }
 }
 
